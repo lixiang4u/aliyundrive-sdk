@@ -5,8 +5,10 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/lixiang4u/aliyundrive-sdk/models"
 	_ "github.com/lixiang4u/aliyundrive-sdk/models"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -17,20 +19,29 @@ import (
 )
 
 const (
-	ApiLogin  = "https://passport.aliyundrive.com/newlogin/sms/login.do?appName=aliyun_drive&fromSite=52&_bx-v=2.0.31"
-	LoginPage = "https://passport.aliyundrive.com/mini_login.htm?lang=zh_cn&appName=aliyun_drive&appEntrance=web&styleType=auto&bizParams=&notLoadSsoView=false&notKeepLogin=false&isMobile=false&ad__pass__q__rememberLogin=false&ad__pass__q__forgotPassword=false&ad__pass__q__licenseMargin=false&ad__pass__q__loginType=normal&hidePhoneCode=true&rnd=0.32309972272841225"
+	ApiLogin        = "https://passport.aliyundrive.com/newlogin/sms/login.do?appName=aliyun_drive&fromSite=52&_bx-v=2.0.31"
+	LoginPage       = "https://passport.aliyundrive.com/mini_login.htm?lang=zh_cn&appName=aliyun_drive&appEntrance=web&styleType=auto&bizParams=&notLoadSsoView=false&notKeepLogin=false&isMobile=false&ad__pass__q__rememberLogin=false&ad__pass__q__forgotPassword=false&ad__pass__q__licenseMargin=false&ad__pass__q__loginType=normal&hidePhoneCode=true&rnd=0.32309972272841225"
+	ApiFileList     = "https://api.aliyundrive.com/adrive/v3/file/list"
+	ApiFileSearch   = "https://api.aliyundrive.com/adrive/v3/file/search"
+	ApiFileDownload = "https://api.aliyundrive.com/v2/file/get_download_url"
+
+	ContentTypeJSON = "application/json;charset=UTF-8"
+	ContentTypeForm = "application/x-www-form-urlencoded"
+	AuthToken       = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxZjY1MGE4YWM4ZTU0MjNhOGZkMDFlYzUzOTY1M2JjMiIsImN1c3RvbUpzb24iOiJ7XCJjbGllbnRJZFwiOlwiMjVkelgzdmJZcWt0Vnh5WFwiLFwiZG9tYWluSWRcIjpcImJqMjlcIixcInNjb3BlXCI6W1wiRFJJVkUuQUxMXCIsXCJTSEFSRS5BTExcIixcIkZJTEUuQUxMXCIsXCJVU0VSLkFMTFwiLFwiU1RPUkFHRS5BTExcIixcIlNUT1JBR0VGSUxFLkxJU1RcIixcIkJBVENIXCIsXCJPQVVUSC5BTExcIixcIklNQUdFLkFMTFwiLFwiSU5WSVRFLkFMTFwiLFwiQUNDT1VOVC5BTExcIl0sXCJyb2xlXCI6XCJ1c2VyXCIsXCJyZWZcIjpcImh0dHBzOi8vd3d3LmFsaXl1bmRyaXZlLmNvbS9cIixcImRldmljZV9pZFwiOlwiNzcyYzA3NGQ4M2NiNGJlODkxN2U4ZWVhNjBmODRhMDZcIn0iLCJleHAiOjE2NDEwNDk4MjUsImlhdCI6MTY0MTA0MjU2NX0.Er809bQ2FdCqm-9xQNoDFSi7ZVQrSG557HzZs4wlFew1uTztXv6cyCEQBerl0t-AugJGVlU-eUEzkSRUvl5MKDOYjn06A5Jg6eNBRdXhGAF2WkCJWozyF10ckKheuUaVsQyO2-dHMoSy_TIQHMN-ozNDz3MFrDVsQvvUbA8zIxc"
 )
 
 func getHeader() map[string]string {
 	var m = make(map[string]string)
 	m["authority"] = "passport.aliyundrive.com"
 	m["user-agent"] = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36"
-	m["content-type"] = "application/x-www-form-urlencoded"
-	m["origin"] = "https://passport.aliyundrive.com"
-	m["referer"] = "https://passport.aliyundrive.com/mini_login.htm?lang=zh_cn&appName=aliyun_drive&appEntrance=web&styleType=auto&bizParams=&notLoadSsoView=false&notKeepLogin=false&isMobile=false&ad__pass__q__rememberLogin=false&ad__pass__q__forgotPassword=false&ad__pass__q__licenseMargin=false&ad__pass__q__loginType=normal&hidePhoneCode=true&rnd=0.32309972272841225"
+	m["content-type"] = "application/json;charset=UTF-8"
+	m["origin"] = "https://www.aliyundrive.com"
+	m["referer"] = "https://www.aliyundrive.com/"
 	m["accept"] = "application/json, text/plain, */*"
 	m["accept-encoding"] = "gzip, deflate, br"
 	m["accept-language"] = "zh-CN,zh;q=0.9"
+	m["authorization"] = fmt.Sprintf("Bearer %s", AuthToken)
+	m["x-device-id"] = "uEfvGXwdOX8CASuB8RRHGAlt"
 	return m
 }
 
@@ -134,4 +145,90 @@ func Login(username, password string, loginConf models.LoginConfig) {
 
 	log.Println(string(b))
 
+}
+
+func ApiPost(url string, body io.Reader, header map[string]string) ([]byte, error) {
+	client := http.Client{}
+	req, err := http.NewRequest("POST", url, body)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range header {
+		req.Header.Add(k, v)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	b, err := ResponseUnzip(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+func FileList(driveId, parentFileId string) ([]byte, error) {
+	var p models.QueryFileListParams
+	p.All = false
+	p.DriveId = driveId
+	p.Fields = "*"
+	p.ImageThumbnailProcess = "image/resize,w_400/format,jpeg"
+	p.ImageUrlProcess = "image/resize,w_1920/format,jpeg"
+	p.Limit = 100
+	p.OrderBy = "updated_at"
+	p.OrderDirection = "DESC"
+	p.ParentFileId = parentFileId
+	p.UrlExpireSec = 1600
+	p.VideoThumbnailProcess = "video/snapshot,t_1000,f_jpg,ar_auto,w_300"
+
+	paramJson, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	b, err := ApiPost(ApiFileList, strings.NewReader(string(paramJson)), getHeader())
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+func FileSearch(driveId string) ([]byte, error) {
+	var p models.QueryFileSearchParams
+	p.DriveId = driveId
+	p.ImageThumbnailProcess = "image/resize,w_400/format,jpeg"
+	p.ImageUrlProcess = "image/resize,w_1920/format,jpeg"
+	p.Limit = 100
+	p.OrderBy = "created_at DESC"
+	p.Query = "type = \"file\""
+	p.VideoThumbnailProcess = "video/snapshot,t_1000,f_jpg,ar_auto,w_300"
+
+	paramJson, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	b, err := ApiPost(ApiFileSearch, strings.NewReader(string(paramJson)), getHeader())
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+func FileDownloadUrl(driveId, fileId string) ([]byte, error) {
+	var p models.QueryFileDownloadParams
+	p.DriveId = driveId
+	p.FileId = fileId
+
+	paramJson, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	b, err := ApiPost(ApiFileDownload, strings.NewReader(string(paramJson)), getHeader())
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
