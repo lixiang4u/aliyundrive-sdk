@@ -24,6 +24,7 @@ const (
 	ApiFileList     = "https://api.aliyundrive.com/adrive/v3/file/list"
 	ApiFileSearch   = "https://api.aliyundrive.com/adrive/v3/file/search"
 	ApiFileDownload = "https://api.aliyundrive.com/v2/file/get_download_url"
+	ApiCreateFolder = "https://api.aliyundrive.com/adrive/v2/file/createWithFolders"
 
 	ContentTypeJSON = "application/json;charset=UTF-8"
 	ContentTypeForm = "application/x-www-form-urlencoded"
@@ -221,6 +222,29 @@ func FileDownloadUrl(driveId, fileId string) ([]byte, error) {
 	var p models.QueryFileDownloadParams
 	p.DriveId = driveId
 	p.FileId = fileId
+
+	paramJson, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	b, err := ApiPost(ApiFileDownload, strings.NewReader(string(paramJson)), getHeader())
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+func FileDownload(url string) {
+	//
+}
+
+func CreateFolder(driveId, parentFileId, name string) ([]byte, error) {
+	var p = make(map[string]interface{})
+	p["check_name_mode"] = "refuse"
+	p["drive_id"] = driveId
+	p["name"] = name
+	p["parent_file_id"] = parentFileId
+	p["type"] = "folder"
 
 	paramJson, err := json.Marshal(p)
 	if err != nil {
