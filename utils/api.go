@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/lixiang4u/aliyundrive-sdk/models"
 	_ "github.com/lixiang4u/aliyundrive-sdk/models"
+	"github.com/tidwall/gjson"
 	"io"
 	"io/ioutil"
 	"log"
@@ -85,20 +86,19 @@ func ResponseUnzip(resp *http.Response) ([]byte, error) {
 }
 
 // 解析登陆页面配置数据
-func GetLoginFormConfig() (models.LoginConfig, error) {
+func GetLoginFormConfig() (gjson.Result, error) {
 	resp, err := http.Get(LoginPage)
 	if err != nil {
-		return models.LoginConfig{}, err
+		return gjson.Result{}, err
 	}
 	b, err := ResponseUnzip(resp)
 	if err != nil {
-		return models.LoginConfig{}, err
+		return gjson.Result{}, err
 	}
 
-	var loginConf = models.LoginConfig{}
 	reg, err := regexp.Compile(`window.viewData = ([\s\S]+);`)
 	if err != nil {
-		return models.LoginConfig{}, err
+		return gjson.Result{}, err
 	}
 
 	for _, str := range strings.Split(string(b), "\n") {
@@ -107,14 +107,10 @@ func GetLoginFormConfig() (models.LoginConfig, error) {
 			continue
 		}
 
-		err = json.Unmarshal([]byte(findList[1]), &loginConf)
-		if err != nil {
-			continue
-		}
-		return loginConf, nil
+		return gjson.Parse(findList[1]), nil
 	}
 
-	return loginConf, errors.New("not Found")
+	return gjson.Result{}, errors.New("not Found")
 }
 
 func Login(username, password string, loginConf models.LoginConfig) {
@@ -172,18 +168,18 @@ func ApiPost(url string, body io.Reader, header map[string]string) ([]byte, erro
 }
 
 func FileList(driveId, parentFileId string) ([]byte, error) {
-	var p models.QueryFileListParams
-	p.All = false
-	p.DriveId = driveId
-	p.Fields = "*"
-	p.ImageThumbnailProcess = "image/resize,w_400/format,jpeg"
-	p.ImageUrlProcess = "image/resize,w_1920/format,jpeg"
-	p.Limit = 100
-	p.OrderBy = "updated_at"
-	p.OrderDirection = "DESC"
-	p.ParentFileId = parentFileId
-	p.UrlExpireSec = 1600
-	p.VideoThumbnailProcess = "video/snapshot,t_1000,f_jpg,ar_auto,w_300"
+	var p = make(map[string]interface{})
+	p["all"] = false
+	p["drive_id"] = driveId
+	p["fields"] = "*"
+	p["image_thumbnail_process"] = "image/resize,w_400/format,jpeg"
+	p["image_url_process"] = "image/resize,w_1920/format,jpeg"
+	p["limit"] = 100
+	p["order_by"] = "updated_at"
+	p["order_direction"] = "DESC"
+	p["parent_file_id"] = parentFileId
+	p["url_expire_sec"] = 1600
+	p["video_thumbnail_process"] = "video/snapshot,t_1000,f_jpg,ar_auto,w_300"
 
 	paramJson, err := json.Marshal(p)
 	if err != nil {
@@ -198,14 +194,14 @@ func FileList(driveId, parentFileId string) ([]byte, error) {
 }
 
 func FileSearch(driveId string) ([]byte, error) {
-	var p models.QueryFileSearchParams
-	p.DriveId = driveId
-	p.ImageThumbnailProcess = "image/resize,w_400/format,jpeg"
-	p.ImageUrlProcess = "image/resize,w_1920/format,jpeg"
-	p.Limit = 100
-	p.OrderBy = "created_at DESC"
-	p.Query = "type = \"file\""
-	p.VideoThumbnailProcess = "video/snapshot,t_1000,f_jpg,ar_auto,w_300"
+	var p = make(map[string]interface{})
+	p["drive_id"] = driveId
+	p["image_thumbnail_process"] = "image/resize,w_400/format,jpeg"
+	p["image_url_process"] = "image/resize,w_1920/format,jpeg"
+	p["limit"] = 100
+	p["order_by"] = "created_at DESC"
+	p["query"] = "type = \"file\""
+	p["video_thumbnail_process"] = "video/snapshot,t_1000,f_jpg,ar_auto,w_300"
 
 	paramJson, err := json.Marshal(p)
 	if err != nil {
@@ -219,9 +215,9 @@ func FileSearch(driveId string) ([]byte, error) {
 }
 
 func FileDownloadUrl(driveId, fileId string) ([]byte, error) {
-	var p models.QueryFileDownloadParams
-	p.DriveId = driveId
-	p.FileId = fileId
+	var p = make(map[string]interface{})
+	p["drive_id"] = driveId
+	p["file_id"] = fileId
 
 	paramJson, err := json.Marshal(p)
 	if err != nil {
